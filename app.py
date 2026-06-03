@@ -24,16 +24,15 @@ if veri_kaynagi == "Gerçek Veri Seti (CSV)":
 st.sidebar.divider()
 ddos_mode = st.sidebar.toggle("🚨 DDoS Saldırısı Başlat!", value=False)
 
-# YENİ: AUTO-SCALING EKLENDİ
+# AUTO-SCALING
 auto_scale_mode = st.sidebar.toggle("📈 Otomatik Ölçeklendirme (Auto-Scaling)", value=False)
 st.sidebar.info("Auto-Scaling açıksa, sistem darboğaz anında otomatik sunucu açar, rahatlayınca kapatır.")
 
-# Eğer Auto-Scaling kapalıysa manuel çökertme yapılabilir
 failover_test = []
 if not auto_scale_mode:
     failover_test = st.sidebar.multiselect("Çökecek Sunucuları Seç (Failover)", [f"Sunucu-{i+1}" for i in range(10)])
 
-# Sistem Kapasitesi (Maksimum 10 sunucu havuzu)
+# Sistem Kapasitesi
 MAX_SERVERS = 35
 sim_time = 100
 
@@ -75,7 +74,7 @@ def load_balancer(env, servers, algo, log_data, real_data_df=None):
         yield env.timeout(arrival_interval)
         request_id += 1
         
-        # Sadece aktif (çöktürülmemiş ve Auto-Scale ile kapatılmamış) sunucular
+        # Sadece aktif sunucular
         active_servers = [s for s in servers if s.is_active and s.name not in failover_test]
         
         if not active_servers:
@@ -108,7 +107,7 @@ def handle_request(env, server, req_id, log_data):
     except Exception:
         pass
 
-# YENİ: SİSTEM İZLEME VE AUTO-SCALING MOTORU (Isı haritası ve otonom yönetim için)
+# YENİ: SİSTEM İZLEME VE AUTO-SCALING MOTORU
 def system_monitor(env, servers, monitor_data):
     while True:
         active_servers = [s for s in servers if s.is_active and s.name not in failover_test]
@@ -119,10 +118,10 @@ def system_monitor(env, servers, monitor_data):
             monitor_data.append({"Zaman": int(env.now), "Sunucu": s.name, "Kuyruk": len(s.resource.queue)})
             s.active_time += 1 # Maliyet için saniye sayacı
             
-        # AUTO-SCALING MANTIĞI: Müşteriler çok bekliyorsa sunucu aç, boşsa kapat.
+        # AUTO-SCALING MANTIĞI
         if auto_scale_mode:
             if total_queue > len(active_servers) * 3 and len(active_servers) < MAX_SERVERS:
-                # Darboğaz var! Kapalı olan ilk sunucuyu aç (Scale UP)
+                # Darboğaz var! Kapalı olan ilk sunucuyu aç
                 inactive = [s for s in servers if not s.is_active]
                 if inactive:
                     inactive[0].is_active = True
@@ -144,12 +143,11 @@ if st.sidebar.button("Simülasyonu Başlat"):
         
     env = simpy.Environment()
     
-    # Auto-scale açıksa 2 sunucuyla başla gerisi kapalı olsun, kapalıysa 4 sunucuyla başla
     initial_active = 2 if auto_scale_mode else 4
     servers = [AdvancedServer(env, f"Sunucu-{i+1}", is_active=(i < initial_active)) for i in range(MAX_SERVERS)]
     
     env.process(load_balancer(env, servers, algo_choice, log_data, real_df))
-    env.process(system_monitor(env, servers, monitor_data)) # Monitörü başlat
+    env.process(system_monitor(env, servers, monitor_data)) 
     env.run(until=sim_time)
 
     df = pd.DataFrame(log_data)
@@ -158,7 +156,7 @@ if st.sidebar.button("Simülasyonu Başlat"):
     if "Gecikme" not in df.columns:
         st.error("🚨 SİSTEM TAMAMEN ÇÖKTÜ VEYA VERİ YOK!")
     else:
-        # YENİ: FİNANSAL MALİYET DASHBOARD'U
+        # FİNANSAL MALİYET DASHBOARD
         st.subheader("💰 Finansal Analiz ve Maliyet (Bulut Bilişim ROI)")
         col_m1, col_m2, col_m3 = st.columns(3)
         
